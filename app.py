@@ -24,9 +24,6 @@ def quiz():
 def fine():
     return render_template("finale.html")
 
-@app.route("/api/domande")
-def get_domande():
-    return jsonify(domande)
 
 @app.route("/static/audio/<path:filename>")
 def serve_audio_static(filename):
@@ -36,8 +33,6 @@ def serve_audio_static(filename):
 def serve_audio_dinamico(filename):
     return send_from_directory(AUDIO_DINAMICO_DIR, filename)
 
-if __name__ == "__main__":
-    app.run(debug=True)
     
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
