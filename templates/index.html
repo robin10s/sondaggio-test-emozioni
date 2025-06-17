@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Sondaggio Cibo e Musica</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+      background: #f9f9f9;
+      color: #333;
+    }
+    h1, h2 {
+      text-align: center;
+      color: #0056b3;
+    }
+    img {
+      width: 100%;
+      max-width: 400px;
+      display: block;
+      margin: 10px auto;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    /* Rimosso .consent-block dagli stili display: none iniziali */
+    .question-block {
+      display: none; /* Inizialmente nascosti, JS li mostrerà uno alla volta */
+      margin-bottom: 40px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+    .visible {
+      display: block; /* Rende il blocco visibile */
+    }
+    .audio-inline {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+      border: 1px solid #eee;
+      padding: 10px;
+      border-radius: 5px;
+      background: #fafafa;
+    }
+    audio {
+      flex: 1;
+      margin-right: 15px;
+    }
+    .btn {
+      margin-top: 25px;
+      padding: 12px 25px;
+      font-size: 18px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    .btn:hover {
+      background-color: #0056b3;
+    }
+    form p {
+      margin-top: 20px;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+    input[type="number"], select {
+      width: calc(100% - 20px);
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    input[type="checkbox"] {
+      margin-right: 8px;
+      transform: scale(1.2);
+    }
+    label {
+      font-weight: normal;
+      margin-left: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Sondaggio: Cibo e Musica</h1>
+
+  <div id="quiz-container">
+    </div>
+
+  <script>
+      const endpoint = "https://api.sheetbest.com/sheets/c77efeef-583f-47c1-a6f6-a5ddfd143c9b";
+      let surveyResponses = []; // Array per memorizzare tutte le risposte (incluse le valutazioni)
+          let currentQuestionIndex = 0; // Tiene traccia della fase corrente del sondaggio (0 = inizio, 1-10 = domande quiz, 11 = finale)
+          let randomQuestions = []; // Verrà popolato con le 10 domande casuali dal JSON
+
+          // Funzione per caricare e visualizzare le domande
+          async function loadQuestions() {
+              const container = document.getElementById("quiz-container");
+              container.innerHTML = ''; // Pulisci il container
+
+              // Carica le domande dal JSON e le randomizza una sola volta all'inizio
+              if (randomQuestions.length === 0) { // Questo blocco viene eseguito solo la prima volta
+                  try {
+                      const res = await fetch("/static/domande.json"); // Carica il file JSON
+                      if (!res.ok) {
+                          throw new Error(`Errore di rete: ${res.status} ${res.statusText}`);
+                      }
+                      const fullList = await res.json(); // fullList è l'array di tutti i blocchi domanda
+
+                      // Randomizza l'intera lista di domande e prendine 10.
+                      randomQuestions = fullList.sort(() => Math.random() - 0.5).slice(0, 10);
+                      currentQuestionIndex = 0; // Inizia dalla prima domanda del quiz (indice 0)
+                      renderCurrentQuestion(); // Mostra la prima domanda
+                  } catch (error) {
+                      console.error("Errore nel caricamento delle domande:", error);
+                      container.innerHTML = "<p>Si è verificato un errore nel caricamento del sondaggio. Riprova più tardi.</p>";
+                  }
+              } else {
+                  // Se le domande sono già caricate, semplicemente renderizza quella corrente
+                  renderCurrentQuestion();
+              }
+          }
+
+          // Funzione per renderizzare la domanda corrente (quiz o finale)
+          function renderCurrentQuestion() {
+              const container = document.getElementById("quiz-container");
+              container.innerHTML = ''; // Pulisci il contenitore
+
+              if (currentQuestionIndex < randomQuestions.length) {
+                  // Mostra le domande del quiz
+                  const questionData = randomQuestions[currentQuestionIndex];
+                  const displayIndex = currentQuestionIndex + 1; // Per visualizzare "Domanda 1 di 10"
+
+                  let audioHtml = '';
+                  questionData.audio.forEach((audioObj, i) => {
+                      // Genera un ID univoco per lo slider e il select dell'emozione
+                      const sliderId = `rating-${displayIndex}-${i}`; // ID più semplice
+                      const emotionSelectId = `emotion-${displayIndex}-${i}`;
+
+                      audioHtml += `
+                          <div class="rating-container">
+                              <audio controls>
+                                  <source src="${audioObj.src}" type="audio/mpeg">
+                                  Il tuo browser non supporta l'elemento audio.
+                              </audio>
+                              <div class="audio-inline">
+                                  <label for="${sliderId}">Valutazione (0-5):</label>
+                                  <input type="range" id="${sliderId}" name="audio_rating_${i}" min="0" max="5" value="0" step="1" oninput="this.nextElementSibling.innerText = this.value">
+                                  <span class="rating-value">0</span>
+                              </div>
+                              <div class="emotion-container">
+                                  <p>Che emozione ti ha suscitato *questo brano*?</p>
+                                  <select name="audio_emozione_${i}" id="${emotionSelectId}" required>
+                                      <option value="">Seleziona</option>
+                                      <option value="Gioia">Gioia</option>
+                                      <option value="Tristezza">Tristezza</option>
+                                      <option value="Rabbia">Rabbia</option>
+                                      <option value="Paura">Paura</option>
+                                      <option value="Sorpresa">Sorpresa</option>
+                                      <option value="Disgusto">Disgusto</option>
+                                      <option value="Serenità">Serenità</option>
+                                      <option value="Frustrazione">Frustrazione</option>
+                                      <option value="Nessuna">Nessuna</option>
+                                  </select>
+                              </div>
+                          </div>
+                      `;
+                  });
+
+                  container.innerHTML = `
+                      <div class="question-block visible" id="question-${displayIndex}">
+                          <h3>Domanda ${displayIndex} di ${randomQuestions.length}</h3>
+                          <img src="/static/${questionData.immagine}" alt="Immagine ${displayIndex}">
+                          <p style="font-style: italic; margin-top: 10px;">Dai una valutazione da 0 a 5 ad ogni brano, dove 0 significa che non associ per niente il brano all'alimento, 5 significa che sono un ottimo abbinamento. Poi seleziona l'emozione suscitata da *ogni singolo brano*.</p>
+                          <form id="question-form-${displayIndex}">
+                              ${audioHtml}
+                              <button type="submit" class="btn">${displayIndex < randomQuestions.length ? "Avanti" : "Completa"}</button>
+                          </form>
+                      </div>
+                  `;
+                  
+                  // Aggiungi l'event listener al form della domanda corrente
+                  document.getElementById(`question-form-${displayIndex}`).addEventListener("submit", e => {
+                      e.preventDefault();
+                      collectQuestionData(questionData, displayIndex);
+                  });
+
+              } else {
+                  // Tutte le domande del quiz sono terminate, mostra le domande finali
+                  showFinalQuestions();
+              }
+          }
+
+          // Funzione per raccogliere i dati di una domanda del quiz
+          function collectQuestionData(questionData, displayIndex) {
+              const form = document.getElementById(`question-form-${displayIndex}`);
+              const formData = new FormData(form);
+
+              // Controllo che tutti i campi emozione siano stati selezionati
+              let allEmotionsSelected = true;
+              questionData.audio.forEach((_, i) => {
+                  if (!formData.get(`audio_emozione_${i}`)) {
+                      allEmotionsSelected = false;
+                  }
+              });
+
+              if (!allEmotionsSelected) {
+                  alert("Per favore, seleziona un'emozione per ogni brano prima di continuare.");
+                  return;
+              }
+
+              // Estrai l'ID numerico dall'immagine (es. "0001" da "img/0001.jpg")
+              const imageIdMatch = questionData.immagine.match(/\d+/);
+              const immagine_id = imageIdMatch ? parseInt(imageIdMatch[0]) : null;
+
+              const audioRatings = [];
+              questionData.audio.forEach((audioObj, i) => {
+                  const sliderInput = form.querySelector(`input[name="audio_rating_${i}"]`);
+                  const rating = parseInt(sliderInput.value);
+                  const emotion = formData.get(`audio_emozione_${i}`); // <--- Recupera l'emozione specifica per questo audio
+
+                  let audio_id_for_sheet;
+                  if (audioObj.origine === "statico") {
+                      const match = audioObj.src.match(/\/(\d+)\.mp3$/);
+                      audio_id_for_sheet = match ? match[1] : "unknown_static";
+                  } else if (audioObj.origine === "dinamico") {
+                      // CORREZIONE QUI: audioObj.src è già la stringa URL. Non serve audioObj.src.src
+                      const match = audioObj.src.match(/\/([^\/]+\.mp3)$/);
+                      audio_id_for_sheet = match ? match[1] : "unknown_dynamic";
+                  } else {
+                      audio_id_for_sheet = "unknown_other";
+                  }
+                  
+                  audioRatings.push({
+                      audio_id: audio_id_for_sheet,
+                      valutazione: rating,
+                      emozione: emotion // <--- Aggiungi l'emozione al singolo oggetto audio
+                  });
+              });
+
+              // Salva i dati della domanda corrente nell'array surveyResponses
+              // Nota: Qui emozione non è più a livello di immagine ma è dentro audio_ratings
+              surveyResponses.push({
+                  immagine_id: immagine_id,
+                  audio_ratings: audioRatings // Array di oggetti {audio_id, valutazione, emozione}
+              });
+
+              currentQuestionIndex++; // Passa alla prossima domanda
+              renderCurrentQuestion(); // Renderizza la prossima domanda o la fase finale
+          }
+
+          // Funzione per mostrare le domande finali (demografiche)
+          function showFinalQuestions() {
+              const container = document.getElementById("quiz-container");
+              container.innerHTML = ''; // Pulisci il container delle domande del quiz
+
+              const finale = document.createElement("div");
+              finale.className = "question-block visible";
+              finale.innerHTML = `
+                  <h2>Dati finali</h2>
+                  <form id="final-form">
+                      <p>Età:</p>
+                      <input type="number" name="eta" min="18" required><br>
+
+                      <p>Genere (Se ti va, indicaci il termine con cui ti identifichi. Sentiti liber* di lasciare vuoto.):</p>
+                      <input type="text" name="genere" placeholder="es. donna, uomo, non binario, transgender, altro, ecc."><br>
+
+                      <p>Esperienza con la musica:</p>
+                      <select name="musica" required>
+                          <option value="">Seleziona</option>
+                          <option>Lavoro nel settore</option>
+                          <option>Appassionata/o</option>
+                          <option>Non particolarmente interessata/o</option>
+                      </select><br>
+
+                      <p>Hai esperienze o interesse nella cucina?</p>
+                      <select name="cucina" required>
+                          <option value="">Seleziona</option>
+                          <option>Lavoro nel settore</option>
+                          <option>Appassionata/o</option>
+                          <option>Non particolarmente interessata/o</option>
+                      </select><br>
+
+                      <p>Con quale dispositivo hai ascoltato i brani?</p>
+                      <select name="dispositivo" required>
+                          <option value="">Seleziona</option>
+                          <option>Cuffie</option>
+                          <option>Altoparlanti del computer</option>
+                          <option>Altoparlanti esterni</option>
+                          <option>Telefono</option>
+                      </select><br><br>
+
+                      <button type="submit" class="btn">Invia le risposte</button>
+                  </form>
+              `;
+
+              // Gestione dell'invio del form finale
+              finale.querySelector("#final-form").addEventListener("submit", async (e) => {
+                  e.preventDefault();
+                  const datiFinali = Object.fromEntries(new FormData(e.target));
+                  
+                  // Prepara i dati da inviare a Sheetbest, creando una riga per ogni singola valutazione audio
+                  const dataToSend = [];
+                  surveyResponses.forEach(quizResponse => {
+                      quizResponse.audio_ratings.forEach(audioRating => {
+                          dataToSend.push({
+                              immagine_id: quizResponse.immagine_id,
+                              audio_id: audioRating.audio_id,
+                              valutazione: audioRating.valutazione,
+                              emozione: audioRating.emozione, // <--- Ora l'emozione viene dall'oggetto audioRating
+                              eta: datiFinali.eta,
+                              genere: datiFinali.genere,
+                              musica: datiFinali.musica,
+                              cucina: datiFinali.cucina,
+                              dispositivo: datiFinali.dispositivo
+                          });
+                      });
+                  });
+
+                  console.log("Dati finali da inviare:", dataToSend);
+
+                  try {
+                      const response = await fetch(endpoint, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(dataToSend)
+                      });
+
+                      if (response.ok) {
+                          document.body.innerHTML = "<h2>✅ Grazie per aver completato il sondaggio!</h2><p>I tuoi dati sono stati inviati con successo.</p>";
+                      } else {
+                          const errorText = await response.text();
+                          console.error("Errore server durante l'invio:", response.status, errorText);
+                          document.body.innerHTML = "<h2>⚠️ Errore durante l'invio delle risposte. Riprova più tardi.</h2><p>Si prega di segnalare l'errore se persiste.</p>";
+                      }
+                  } catch (error) {
+                      console.error("Errore di rete durante l'invio:", error);
+                      document.body.innerHTML = "<h2>⚠️ Errore di connessione. Riprova più tardi.</h2><p>Verifica la tua connessione internet.</p>";
+                  }
+              });
+
+              container.appendChild(finale);
+          }
+
+          // Inizia il sondaggio visualizzando la prima domanda al caricamento della pagina
+          document.addEventListener("DOMContentLoaded", loadQuestions);
